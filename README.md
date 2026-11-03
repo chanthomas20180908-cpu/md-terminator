@@ -15,9 +15,11 @@ npm run dev
 
 ## 阅读外观
 
-顶部“外观”支持 14–24px 字号、1.4–2.2 倍正文行距与四个主题，即时生效，仅存本次页面内存。恢复默认回到彩色编辑部 / 17px / 1.85 倍。
+顶部“外观”支持 10–32px 字号、1.0–3.0 倍正文行距与四个主题，即时生效，仅存本次页面内存。恢复默认回到彩色编辑部 / 17px / 1.85 倍。
 
 主题使用各项目色板适配本站排版，并非官方阅读器移植：
 - Solarized：https://github.com/altercation/solarized （MIT）
 - Nord：https://github.com/nordtheme/nord （MIT）
 - Catppuccin：https://github.com/catppuccin/catppuccin （MIT）
+
+阅读页顶部“导出 .md”下载当前文章的原始 Markdown（UTF-8），不包含页面样式或主题设置。文件名为 `文章标题_YYYYMMDD-HHMMSS-ffffff.md`，使用导出时本机时间；标题中的文件名特殊字符会被替换。历史文章打开后同样可以导出。
