@@ -3,60 +3,26 @@ import{createRoot}from'react-dom/client';
 import Markdown from'react-markdown';
 import gfm from'remark-gfm';
 import highlight from'rehype-highlight';
-import'highlight.js/styles/github-dark.css';
+
 import './style.css';
-const sample=`# 给信息一点呼吸的空间
-
-每天读很多回答，也值得拥有舒服的阅读体验。
-
-## 01 好的排版，让思考浮现
-
-信息不必一直拥挤在一起。**清楚的层次**、恰当的留白，以及一点温柔的颜色，让重要的内容自然浮现。
-
-> 阅读不是赶路。停下来，把一个想法读明白，也是一种进展。
-
-## 02 从三个小步骤开始
-
-1. 把 GPT 的回答粘贴到左侧。
-2. 看看标题、列表和引用如何各就各位。
-3. 切换到阅读模式，让注意力回到内容。
-
-- [x] 保留原始文字与顺序
-- [x] 支持表格、引用与代码
-- [ ] 留一点时间慢慢读
-
-### 不同信息，各有位置
-
-| 元素 | 呈现方式 | 用途 |
-| --- | --- | --- |
-| 标题 | 清楚的层级 | 理清脉络 |
-| 引用 | 柔和的色块 | 留下旁注 |
-| 代码 | 独立的深色区域 | 专注细节 |
-
-## 03 想法也可以运行
-
-行内的代码像这样：\`const idea = 'start small'\`。
-
-\`\`\`javascript
-function readSlowly(text) {
-  return text.trim();
-}
-\`\`\`
-
----
-
-文字来自你，阅读的节奏也由你决定。[了解 Markdown](https://www.markdownguide.org/)。`;
-function saved(){try{return JSON.parse(localStorage.getItem('md-terminator')||'{}')}catch{return{}}}
+import './themes.css';
 function RemoteImage({src,alt}:{src?:string;alt?:string}){const[show,setShow]=useState(false);return show?<img src={src} alt={alt}/>:<button className="image-load" onClick={()=>setShow(true)}>加载图片：{alt||'远程图片'}（将访问外部地址）</button>}
-function App(){const initial=useRef(saved());const[text,setText]=useState<string>(initial.current.text??'');const[rendered,setRendered]=useState(text);const[reading,setReading]=useState(!!initial.current.reading);const[notice,setNotice]=useState('');const[toc,setToc]=useState(false);const file=useRef<HTMLInputElement>(null);const article=useRef<HTMLElement>(null);
-useEffect(()=>{const timer=setTimeout(()=>setRendered(text),180);return()=>clearTimeout(timer)},[text]);
-useEffect(()=>{try{localStorage.setItem('md-terminator',JSON.stringify({text,reading}))}catch{setNotice('本地保存不可用，请及时复制原文。')}},[text,reading]);
+type Entry={id:string;text:string;title:string;time:number;scroll:number};
+function App(){const[appearance,setAppearance]=useState(false);const[theme,setTheme]=useState('editorial');const[size,setSize]=useState(17);const[line,setLine]=useState(1.85);const panel=useRef<HTMLDivElement>(null);const trigger=useRef<HTMLButtonElement>(null);
+useEffect(()=>{document.documentElement.dataset.theme=theme;document.documentElement.style.setProperty('--reading-size',size+'px');document.documentElement.style.setProperty('--reading-line',String(line))},[theme,size,line]);
+useEffect(()=>{if(!appearance)return;panel.current?.querySelector<HTMLElement>('input')?.focus();const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){setAppearance(false);trigger.current?.focus()}};const click=(e:PointerEvent)=>{if(!panel.current?.contains(e.target as Node)&&!trigger.current?.contains(e.target as Node))setAppearance(false)};document.addEventListener('keydown',key);document.addEventListener('pointerdown',click);return()=>{document.removeEventListener('keydown',key);document.removeEventListener('pointerdown',click)}},[appearance]);const[page,setPage]=useState<'input'|'read'|'history'>('input');const[draft,setDraft]=useState('');const[entries,setEntries]=useState<Entry[]>([]);const[active,setActive]=useState('');const[notice,setNotice]=useState('');const[toc,setToc]=useState(false);const[heads,setHeads]=useState<{id:string;text:string;level:number}[]>([]);const[current,setCurrent]=useState('');const file=useRef<HTMLInputElement>(null);const article=useRef<HTMLElement>(null);const position=useRef(0);const entry=entries.find(e=>e.id===active);
+useEffect(()=>{try{localStorage.removeItem('md-terminator')}catch{}},[]);
+useEffect(()=>{const handler=()=>{position.current=window.scrollY};window.addEventListener('scroll',handler);return()=>window.removeEventListener('scroll',handler)},[]);
+function leave(){if(page==='read')setEntries(es=>es.map(e=>e.id===active?{...e,scroll:position.current}:e));setToc(false)}
+function open(e:Entry){leave();setActive(e.id);setPage('read');requestAnimationFrame(()=>window.scrollTo(0,e.scroll))}
+function create(text:string){if(!text.trim()){setNotice('请输入非空内容');return}leave();const title=(text.match(/^#{1,6}\s+(.+)$/m)?.[1]||text.split('\n').find(l=>l.trim())||'未命名文章').slice(0,70);const e={id:crypto.randomUUID(),text,title,time:Date.now(),scroll:0};setEntries(es=>[e,...es]);setActive(e.id);setDraft('');setPage('read');window.scrollTo(0,0)}
+useEffect(()=>{if(page!=='read'||!article.current)return;const elements=Array.from(article.current.querySelectorAll('h1,h2,h3,h4,h5,h6'));setHeads(elements.map((h,i)=>{h.id='section-'+i;return{id:h.id,text:h.textContent||'',level:Number(h.tagName[1])}}));const observer=new IntersectionObserver(items=>{const visible=items.filter(i=>i.isIntersecting);if(visible.length)setCurrent(visible[0].target.id)},{rootMargin:'-70px 0px -65% 0px'});elements.forEach(h=>observer.observe(h));return()=>observer.disconnect()},[page,active]);
 useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),4000);return()=>clearTimeout(timer)},[notice]);
-async function copy(value:string){try{await navigator.clipboard.writeText(value);setNotice('已复制')}catch{setNotice('无法访问剪贴板，请手动选择文字复制')}}
-return <><header><a className="brand" href="#"><b>M<span>✳</span></b><div>MD TERMINATOR<small>让文字，好好说话。</small></div></a><span className="mode">● 彩色编辑部</span><nav><button onClick={async()=>{try{setText(await navigator.clipboard.readText())}catch{setNotice('无法读取剪贴板，请在编辑区手动粘贴');setReading(false)}}}>粘贴回答</button><button onClick={()=>file.current?.click()}>导入 .md</button><button className="primary" onClick={()=>setReading(!reading)}>{reading?'返回编辑':'进入阅读 ↗'}</button></nav></header>
-<input hidden type="file" accept=".md,.markdown,.txt" ref={file} onChange={async e=>{const f=e.target.files?.[0];if(f)try{setText(await f.text());setNotice('文件已导入')}catch{setNotice('文件读取失败')}e.target.value=''}}/>
-<div className="intro"><span>YOUR PERSONAL READING ROOM</span><h1>给好内容，一个好看的样子<span>。</span></h1><p>把纷繁的回答，变成愿意慢慢读的文章。</p></div>
-<main className={reading?'reading':''}>{!reading&&<section className="editor"><div className="panel-head"><span>01 / 原始文字</span><button onClick={()=>setText(sample)}>载入示例</button></div><textarea aria-label="Markdown 输入" placeholder={'把 GPT 的回答粘贴在这里…\n\n支持 Markdown 标题、列表、表格、代码与引用。'} value={text} onChange={e=>setText(e.target.value)}/><footer><span>{text.length.toLocaleString()} 字符 · 自动保存在本机</span><button onClick={()=>{if(confirm('清空当前内容？'))setText('')}}>清空</button></footer></section>}
-<section className="preview"><div className="panel-head"><span>02 / 彩色编辑部</span><div><button onClick={()=>setToc(!toc)}>目录 {toc?'−':'+'}</button><button onClick={()=>copy(text)}>复制原文</button></div></div>{toc&&<aside aria-label="文章目录">{Array.from(article.current?.querySelectorAll('h1,h2,h3')||[]).map((h,i)=><button key={i} onClick={()=>h.scrollIntoView({behavior:'smooth',block:'start'})}>{h.textContent}</button>)}</aside>}
-<article ref={article}>{text?<Markdown remarkPlugins={[gfm]} rehypePlugins={[highlight]} components={{a:props=><a {...props} target="_blank" rel="noopener noreferrer"/>,img:props=><RemoteImage src={props.src} alt={props.alt}/>,pre:({children,...props})=><div className="code-wrap"><button onClick={e=>copy(e.currentTarget.parentElement?.querySelector('pre')?.textContent||'')}>复制代码</button><pre {...props}>{children}</pre></div>,table:({children,...props})=><div className="table-wrap"><table {...props}>{children}</table></div>}}>{rendered}</Markdown>:<div className="empty"><span>✳</span><h2>你的下一篇好读文章，从这里开始</h2><p>粘贴一段回答，或者先看看我们准备的示例。</p><button className="primary" onClick={()=>setText(sample)}>看看阅读效果 ↗</button></div>}</article><div className="endnote">END OF PAGE · 留一点空白，给自己的思考</div></section></main><div className="bottom">本地阅读 · 无 AI 调用 · 文字不上传</div>{notice&&<div role="status" className="toast">{notice}</div>}</>}
+async function copy(value:string){try{await navigator.clipboard.writeText(value);setNotice('已复制')}catch{setNotice('无法复制，请手动选择文字')}}
+return <><header><div className="brand"><b>M<span>✳</span></b><div>MD TERMINATOR<small>让文字，好好说话。</small></div></div><span className="mode">● 彩色编辑部</span><nav><button ref={trigger} aria-expanded={appearance} aria-controls="appearance" onClick={()=>setAppearance(!appearance)}>外观</button><button onClick={async()=>{try{create(await navigator.clipboard.readText())}catch{setNotice('无法读取剪贴板，请手动粘贴')}}}>粘贴回答</button><button onClick={()=>file.current?.click()}>导入 .md</button><button onClick={()=>{leave();setDraft('');setPage('input');window.scrollTo(0,0)}}>新建</button><button className={page==='history'?'primary':''} onClick={()=>{leave();setPage('history');window.scrollTo(0,0)}}>历史 <span>{entries.length}</span></button></nav></header>
+{appearance&&<div id="appearance" className="appearance" ref={panel} role="region" aria-label="阅读外观"><h2>阅读外观</h2><label>字号 <output>{size}px</output><input type="range" min="14" max="24" step="1" value={size} onChange={e=>setSize(Number(e.target.value))}/></label><label>行距 <output>{line.toFixed(2)} 倍</output><input type="range" min="1.4" max="2.2" step="0.05" value={line} onChange={e=>setLine(Number(e.target.value))}/></label><fieldset><legend>主题</legend>{[['editorial','彩色编辑部','#fffdf6','#337b65'],['solarized','Solarized Light','#fdf6e3','#268bd2'],['nord','Nord','#2e3440','#88c0d0'],['mocha','Catppuccin Mocha','#1e1e2e','#cba6f7']].map(([id,name,bg,accent])=><label className="theme-option" key={id}><input type="radio" name="theme" checked={theme===id} onChange={()=>setTheme(id)}/><span style={{background:bg,color:accent}}>Aa</span>{name}</label>)}</fieldset><button onClick={()=>{setTheme('editorial');setSize(17);setLine(1.85)}}>恢复默认</button><small>仅本次打开有效</small></div>}
+<input hidden type="file" accept=".md,.markdown,.txt" ref={file} onChange={async e=>{const f=e.target.files?.[0];if(f)try{create(await f.text())}catch{setNotice('文件读取失败')}e.target.value=''}}/>
+{page==='input'&&<main className="input-page"><textarea autoFocus aria-label="Markdown 输入" placeholder={'粘贴 GPT 回答，立即开始阅读…\n\n也可以手动输入，按 ⌘ / Ctrl + Enter 完成。'} value={draft} onChange={e=>setDraft(e.target.value)} onPaste={e=>{const text=e.clipboardData.getData('text/plain');if(text.trim()){e.preventDefault();const t=e.currentTarget;create(draft.slice(0,t.selectionStart)+text+draft.slice(t.selectionEnd))}}} onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&!e.nativeEvent.isComposing){e.preventDefault();create(draft)}}}/></main>}
+{page==='history'&&<main className="history-page"><h1>阅读历史</h1><p>仅本次打开有效，刷新后清空</p>{entries.length?entries.map(e=><button className="history-item" key={e.id} onClick={()=>open(e)}><strong>{e.title}</strong><time>{new Date(e.time).toLocaleString('zh-CN')}</time><span>{e.text.slice(0,120)}</span></button>):<div className="empty"><p>还没有阅读记录</p><button className="primary" onClick={()=>setPage('input')}>新建阅读</button></div>}</main>}
+{page==='read'&&entry&&<main className={'reader '+(!heads.length?'no-toc':'')} key={entry.id}>{heads.length>0&&<><button className="mobile-toc" onClick={()=>setToc(!toc)}>目录 {toc?'−':'+'}</button><aside className={toc?'open':''}><div className="toc-title">文章目录</div>{heads.map(h=><button key={h.id} className={current===h.id?'selected':''} style={{paddingLeft:12+(h.level-1)*12}} onClick={()=>{document.getElementById(h.id)?.scrollIntoView({behavior:'smooth'});setCurrent(h.id);setToc(false)}}>{h.text}</button>)}</aside></>}<section className="preview"><article ref={article}><Markdown remarkPlugins={[gfm]} rehypePlugins={[highlight]} components={{a:props=><a {...props} target="_blank" rel="noopener noreferrer"/>,img:props=><RemoteImage src={props.src} alt={props.alt}/>,pre:({children,...props})=><div className="code-wrap"><button onClick={e=>copy(e.currentTarget.parentElement?.querySelector('pre')?.textContent||'')}>复制代码</button><pre {...props}>{children}</pre></div>,table:({children,...props})=><div className="table-wrap"><table {...props}>{children}</table></div>}}>{entry.text}</Markdown></article></section></main>}{notice&&<div role="status" className="toast">{notice}</div>}</>}
 createRoot(document.getElementById('root')!).render(<App/>);
